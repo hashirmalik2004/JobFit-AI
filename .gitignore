@@ -1,0 +1,17 @@
+# python stuff
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# data files (user specific)
+data/*.pdf
+
+# OS junk
+.DS_Store
+Thumbs.db
