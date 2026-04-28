@@ -1,14 +1,8 @@
-# app.py
-# this is the main entry point - the Streamlit dashboard
-# run it with: streamlit run app.py
-# it creates a web interface where recruiters can upload resumes
-# and paste job descriptions to see how well they match
-
+# the streamlit dashboard
 import streamlit as st
 import pandas as pd
 import time
 
-# import all our custom modules
 from src.PdfParser import ExtractTextFromBytes
 from src.TextCleaner import Sanitize
 from src.NlpProcessor import Process
@@ -16,32 +10,23 @@ from src.Vectorizer import ComputeSimilarity, ComputeBatchSimilarity
 from src.EntityExtractor import MatchSkills
 from src.DatasetLoader import LoadDataset, GetCategories, PreprocessDataset
 
-
-# ============================================================
-# PAGE CONFIG - set up the streamlit page settings
-# this has to be the very first streamlit command
-# ============================================================
-
 st.set_page_config(
-    page_title="JobFit AI - Discover how well your resume matches real job descriptions in seconds.",
+    page_title="JobFit AI",
     page_icon="📄",
-    layout="wide",  # use the full width of the page
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ============================================================
-# SIDEBAR - instructions 
-# ============================================================
-
+#sidebar design
 with st.sidebar:
-    st.markdown("## 📄JobFit AI")
+    st.markdown("## How it works")
     st.markdown("---")
     
     st.markdown("""
      Single Job Match:
     1. Upload your resume in PDF format
     2. Paste a job description in the text box
-    3. Click Analyze
+    3. Click Analyze and it will give you a score based on how much your skills match
     """)
     
     st.markdown("---")
@@ -55,10 +40,7 @@ with st.sidebar:
     """)
 
 
-# ============================================================
-# MAIN HEADER
-# ============================================================
-
+#main header
 st.markdown("""
 <div class="main-header">
     <h1>JobFit AI</h1>
@@ -66,130 +48,152 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# CUSTOM CSS - make it look dark and premium
-# streamlit has a theming system but custom css gives more control
-# ============================================================
 
+#custom css
 st.markdown("""
 <style>
-    /* main background and text */
+    /* main background */
+    
     .stApp {
-        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+        background-color: #222831;
+        color: #DFD0B8;
+    }
+    
+    /* sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #393E46;
+        border-right: 1px solid #948979;
     }
     
     /* header styling */
     .main-header {
         text-align: center;
-        padding: 1.5rem 0;
-        background: linear-gradient(135deg, rgba(0, 150, 255, 0.1), rgba(138, 43, 226, 0.1));
-        border-radius: 16px;
-        border: 1px solid rgba(0, 150, 255, 0.2);
-        margin-bottom: 2rem;
+        padding: 2rem 0;
+        background-color: #393E46;
+        border-radius: 20px;
+        border: 2px solid #948979;
+        margin-bottom: 2.5rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
     
     .main-header h1 {
-        background: linear-gradient(135deg, #00bfff, #8a2be2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.8rem;
-        font-weight: 800;
-        margin-bottom: 0.3rem;
+        color: #DFD0B8;
+        font-size: 3.5rem;
+        font-weight: 900;
+        margin-bottom: 0.5rem;
+        letter-spacing: -1px;
     }
     
     .main-header p {
-        color: #a0a0c0;
-        font-size: 1.1rem;
+        color: #948979;
+        font-size: 1.2rem;
+        font-weight: 500;
     }
     
-    /* score display card */
+    /* score card styling */
+
     .score-card {
         text-align: center;
-        padding: 2rem;
-        background: linear-gradient(135deg, rgba(0, 150, 255, 0.15), rgba(138, 43, 226, 0.15));
-        border-radius: 16px;
-        border: 1px solid rgba(0, 150, 255, 0.3);
+        padding: 2.5rem;
+        background-color: #393E46;
+        border-radius: 20px;
+        border: 2px solid #948979;
         margin: 1rem 0;
+        transition: transform 0.3s ease;
+    }
+    
+    .score-card:hover {
+        transform: translateY(-5px);
     }
     
     .score-number {
-        font-size: 4rem;
+        font-size: 4.5rem;
         font-weight: 900;
-        background: linear-gradient(135deg, #00bfff, #8a2be2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #948979;
+        line-height: 1;
     }
     
     .score-label {
-        color: #a0a0c0;
-        font-size: 1.1rem;
-        margin-top: 0.5rem;
+        color: #DFD0B8;
+        font-size: 1.2rem;
+        margin-top: 1rem;
+        font-weight: 600;
     }
     
-    /* skill tags */
+    /* skill tags styling */
+
     .skill-tag-matched {
         display: inline-block;
-        padding: 4px 12px;
-        margin: 3px;
-        border-radius: 20px;
-        background: rgba(50, 205, 50, 0.2);
-        border: 1px solid rgba(50, 205, 50, 0.4);
-        color: #50cd32;
-        font-size: 0.85rem;
+        padding: 6px 14px;
+        margin: 4px;
+        border-radius: 8px;
+        background: rgba(148, 137, 121, 0.15);
+        border: 1px solid #948979;
+        color: #948979;
+        font-size: 0.9rem;
+        font-weight: 600;
     }
     
     .skill-tag-missing {
         display: inline-block;
-        padding: 4px 12px;
-        margin: 3px;
-        border-radius: 20px;
-        background: rgba(255, 69, 58, 0.2);
-        border: 1px solid rgba(255, 69, 58, 0.4);
-        color: #ff453a;
-        font-size: 0.85rem;
+        padding: 6px 14px;
+        margin: 4px;
+        border-radius: 8px;
+        background: rgba(255, 69, 58, 0.1);
+        border: 1px solid rgba(255, 69, 58, 0.5);
+        color: #ff6b6b;
+        font-size: 0.9rem;
     }
     
     .skill-tag-extra {
         display: inline-block;
-        padding: 4px 12px;
-        margin: 3px;
-        border-radius: 20px;
-        background: rgba(0, 150, 255, 0.2);
-        border: 1px solid rgba(0, 150, 255, 0.4);
-        color: #0096ff;
-        font-size: 0.85rem;
+        padding: 6px 14px;
+        margin: 4px;
+        border-radius: 8px;
+        background: rgba(223, 208, 184, 0.1);
+        border: 1px solid rgba(223, 208, 184, 0.4);
+        color: #DFD0B8;
+        font-size: 0.9rem;
     }
     
-    /* info cards */
-    .info-card {
-        padding: 1.2rem;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        margin: 0.5rem 0;
+    /* override streamlit components */
+
+    .stButton>button {
+        background-color: #948979 !important;
+        color: #222831 !important;
+        font-weight: 700 !important;
+        border-radius: 10px !important;
+        border: none !important;
+        padding: 0.5rem 2rem !important;
     }
     
-    .info-card h4 {
-        color: #00bfff;
-        margin-bottom: 0.5rem;
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea {
+        background-color: #393E46 !important;
+        color: #DFD0B8 !important;
+        border: 1px solid #948979 !important;
     }
     
-    /* sidebar styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f0f1a 0%, #1a1a2e 100%);
-    }
-    
-    /* status indicator dots */
-    .status-good { color: #32cd32; }
-    .status-ok { color: #ffa500; }
-    .status-bad { color: #ff453a; }
-    
-    /* metric cards override */
     [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: #393E46;
+        border: 1px solid #948979;
+        border-radius: 15px;
+        padding: 1.5rem;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #948979 !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #DFD0B8 !important;
+    }
+    
+    h1, h2, h3, h4, h5, h6, p, span, label {
+        color: #DFD0B8 !important;
+    }
+
+    hr {
+        border-color: #393E46 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -197,28 +201,19 @@ st.markdown("""
 
 
 
-# ============================================================
-# MODE SELECTOR - choose between single JD or dataset search
-# ============================================================
-
-st.markdown("")  # spacing
+# mode selector
+st.markdown("") 
 SelectedMode = st.radio(
-    "Choose Analysis Mode",
+    "choose analysis mode",
     ["Single Job Match", "Dataset Job Search"],
     horizontal=True,
-    
 )
 
 st.markdown("---")
 
-
-# ============================================================
-# MODE 1: SINGLE JOB MATCH (existing feature - untouched logic)
-# ============================================================
-
+# mode 1: single job match
 if SelectedMode == "Single Job Match":
-
-    # ---- INPUT SECTION ----
+    # input section
     InputCol1, InputCol2 = st.columns(2)
 
     with InputCol1:
@@ -241,17 +236,17 @@ if SelectedMode == "Single Job Match":
         if JobDescription:
             st.caption(f"{len(JobDescription)} characters")
 
-    # ---- ANALYZE BUTTON ----
+    # analyze button
     st.markdown("")
     ButtonCol1, ButtonCol2, ButtonCol3 = st.columns([1, 1, 1])
     with ButtonCol2:
         AnalyzeClicked = st.button(
-            " Analyze Resume",
+            "analyze resume",
             use_container_width=True,
             type="primary"
         )
 
-    # ---- ANALYSIS PIPELINE ----
+    # analysis pipeline
     if AnalyzeClicked:
 
         if not UploadedFile:
@@ -295,9 +290,9 @@ if SelectedMode == "Single Job Match":
         time.sleep(0.5)
         ProgressBar.empty()
 
-        # ---- RESULTS DISPLAY ----
+        # results display
         st.markdown("---")
-        st.markdown("## Analysis Results")
+        st.markdown("## analysis results")
 
         ScoreCol, StatsCol = st.columns([1, 1])
 
@@ -320,10 +315,10 @@ if SelectedMode == "Single Job Match":
             </div>
             """, unsafe_allow_html=True)
 
-            # ---- context note ----
-            st.info("These results are calculated based on keyword similarity (TF-IDF). "
-                    "A higher score means more keyword overlap with your resume, "
-                    "not necessarily a better or worse fit. Use this as a starting "
+            # context note
+            st.info("these results are calculated based on keyword similarity (tf-idf). "
+                    "a higher score means more keyword overlap with your resume, "
+                    "not necessarily a better or worse fit. use this as a starting "
                     "point to find relevant job postings or improve your resume.")
                     
 
@@ -335,96 +330,91 @@ if SelectedMode == "Single Job Match":
         
         SkillPercent = round(SkillRatio * 100, 1)
 
-        # ---- Skill Status ----
+        # skill status
         if SkillRatio >= 0.7:
             StatusEmoji = "🟢"
-            StatusText = "Strong Match"
+            StatusText = "strong match"
         elif SkillRatio >= 0.4:
             StatusEmoji = "🟡"
-            StatusText = "Partial Match"
+            StatusText = "partial match"
         else:
             StatusEmoji = "🔴"
-            StatusText = "Low Match"
+            StatusText = "low match"
 
         with StatsCol:
-            st.markdown("### 🎯 Skill Analysis")
+            st.markdown("###  skill analysis")
 
-            # --- MAIN METRIC (dominant) ---
+            # main metric
             st.metric(
-                label=f"{StatusEmoji} Skill Match",
+                label=f"{StatusEmoji} skill match",
                 value=f"{SkillPercent}%",
                 delta=f"{StatusText}"
             )
 
-            # --- CONTEXT MESSAGE ---
+            # context message
             if SkillRatio >= 0.7:
-                st.success("Your resume aligns well with the required skills.")
+                st.success("your resume aligns well with the required skills.")
             elif SkillRatio >= 0.4:
-                st.warning("You meet some requirements but could improve key areas.")
+                st.warning("you meet some requirements but could improve key areas.")
             else:
-                st.error("Significant skill gaps detected for this role.")
+                st.error("significant skill gaps detected for this role.")
 
             st.markdown("---")
 
-            # --- SECONDARY METRICS ---
+            # secondary metrics
             MetricCol1, MetricCol2 = st.columns(2)
 
             with MetricCol1:
-                st.metric("✅ Matched Skills", SkillResults["MatchedCount"])
-                st.metric("❌ Missing Skills", SkillResults["MissingCount"])
+                st.metric("✅ matched skills", SkillResults["MatchedCount"])
+                st.metric("❌ missing skills", SkillResults["MissingCount"])
 
             with MetricCol2:
-                st.metric("➕ Extra Skills", SkillResults["ExtraCount"])
+                st.metric("➕ extra skills", SkillResults["ExtraCount"])
 
-        # ---- Skill Breakdown ----
-        st.markdown("### Skill Breakdown")
+        # skill breakdown
+        st.markdown("### skill breakdown")
         SkillCol1, SkillCol2, SkillCol3 = st.columns(3)
 
         with SkillCol1:
-            st.markdown("####  Matched Skills")
+            st.markdown("#### matched skills")
             if SkillResults["Matched"]:
                 MatchedHtml = ""
                 for Skill in SkillResults["Matched"]:
                     MatchedHtml = MatchedHtml + f'<span class="skill-tag-matched">{Skill}</span>'
                 st.markdown(MatchedHtml, unsafe_allow_html=True)
             else:
-                st.info("No matching tech skills found")
+                st.info("no matching tech skills found")
 
         with SkillCol2:
-            st.markdown("####  Missing from Resume")
+            st.markdown("#### missing from resume")
             if SkillResults["Missing"]:
                 MissingHtml = ""
                 for Skill in SkillResults["Missing"]:
                     MissingHtml = MissingHtml + f'<span class="skill-tag-missing">{Skill}</span>'
                 st.markdown(MissingHtml, unsafe_allow_html=True)
             else:
-                st.success("No missing skills")
+                st.success("no missing skills")
 
         with SkillCol3:
-            st.markdown("#### Extra Skills ")
+            st.markdown("#### extra skills")
             if SkillResults["Extra"]:
                 ExtraHtml = ""
                 for Skill in SkillResults["Extra"]:
                     ExtraHtml = ExtraHtml + f'<span class="skill-tag-extra">{Skill}</span>'
                 st.markdown(ExtraHtml, unsafe_allow_html=True)
             else:
-                st.info("No extra tech skills found")
+                st.info("no extra tech skills found")
 
         st.markdown("---")
 
-        with st.expander("📄 View Extracted Resume Text (raw)"):
+        with st.expander("📄 view extracted resume text (raw)"):
             st.text(ResumeRawText[:3000])
             if len(ResumeRawText) > 3000:
                 st.caption(f"... showing first 3000 of {len(ResumeRawText)} characters")
 
-
-# ============================================================
-# MODE 2: DATASET JOB SEARCH (new feature)
-# ============================================================
-
+# mode 2: dataset job search
 elif SelectedMode == "Dataset Job Search":
-
-    # ---- INPUT SECTION ----
+    # input section
     InputCol1, InputCol2 = st.columns([1, 1])
 
     with InputCol1:
@@ -459,17 +449,17 @@ elif SelectedMode == "Dataset Job Search":
             min_value=5, max_value=50, value=15, step=5
         )
 
-    # ---- SEARCH BUTTON ----
+    # search button
     st.markdown("")
     BtnCol1, BtnCol2, BtnCol3 = st.columns([1, 1, 1])
     with BtnCol2:
         SearchClicked = st.button(
-            " Search Job Dataset",
+            "search job dataset",
             use_container_width=True,
             type="primary"
         )
 
-    # ---- SEARCH PIPELINE ----
+    # search pipeline
     if SearchClicked:
 
         if not DatasetUploadedFile:
@@ -566,21 +556,21 @@ elif SelectedMode == "Dataset Job Search":
         time.sleep(0.5)
         ProgressBar.empty()
 
-        # ---- RESULTS DISPLAY ----
+        # results display
         st.markdown("---")
-        st.markdown("## Dataset Search Results")
+        st.markdown("## dataset search results")
 
         # summary card
         st.markdown(f"""
         <div class="score-card">
             <div class="score-number">{TotalJobs}</div>
-            <div class="score-label">Jobs Analyzed</div>
+            <div class="score-label">jobs analyzed</div>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("")
 
-        # build the results dataframe from top N
+        # build results table
         TopResults = BatchResults[:TopN]
         TableRows = []
         for Rank, Result in enumerate(TopResults, 1):
@@ -596,14 +586,14 @@ elif SelectedMode == "Dataset Job Search":
 
         ResultsDf = pd.DataFrame(TableRows)
 
-        # ---- context note ----
-        st.info("These results are ranked by Skill Match ratio. "
-                "Keyword Similarity (TF-IDF) is also shown for reference.")
+        # context note
+        st.info("these results are ranked by skill match ratio. "
+                "keyword similarity (tf-idf) is also shown for reference.")
 
 
-        # ---- RANKED TABLE ----
-        st.markdown("### Ranked Job Matches")
-        st.caption("Ranked by keyword overlap — not a quality judgment on your resume.")
+        # ranked table
+        st.markdown("### ranked job matches")
+        st.caption("ranked by keyword overlap — not a quality judgment on your resume.")
         st.dataframe(
             ResultsDf,
             use_container_width=True,
@@ -613,66 +603,66 @@ elif SelectedMode == "Dataset Job Search":
 
         st.markdown("---")
 
-        # ---- EXPANDABLE JOB DETAILS ----
-        st.markdown("### Job Details (click to expand)")
+        # expandable job details
+        st.markdown("### job details (click to expand)")
         for Rank, Result in enumerate(TopResults[:10], 1):
             Idx = Result["Index"]
             Row = FilteredDf.iloc[Idx]
             
-            # Use precomputed Skill Match for this specific job
+            # use precomputed skill match
             SkillResults = Result["SkillResults"]
             SkillRatio = Result["SkillRatio"]
             SkillPercent = Result["SkillPercent"]
 
-            # ---- Skill Status ----
+            # skill status
             if SkillRatio >= 0.7:
                 StatusEmoji = "🟢"
-                StatusText = "Strong Match"
+                StatusText = "strong match"
             elif SkillRatio >= 0.4:
                 StatusEmoji = "🟡"
-                StatusText = "Partial Match"
+                StatusText = "partial match"
             else:
                 StatusEmoji = "🔴"
-                StatusText = "Low Match"
+                StatusText = "low match"
 
             with st.expander(f"{StatusEmoji} #{Rank} — {Row['job_title']} (Skill Match: {SkillPercent}%)"):
-                st.markdown(f"**Category:** {Row['category']} | **Job ID:** {Row['job_id']}")
-                st.markdown(f"**Keyword Similarity (TF-IDF):** {Result['Percentage']}")
-                st.caption("This score reflects keyword overlap, not how qualified you are.")
+                st.markdown(f"**category:** {Row['category']} | **job id:** {Row['job_id']}")
+                st.markdown(f"**keyword similarity (tf-idf):** {Result['Percentage']}")
+                st.caption("this score reflects keyword overlap, not how qualified you are.")
 
                 st.markdown("---")
-                st.markdown("#### 🎯 Skill Analysis")
+                st.markdown("####  skill analysis")
                 
-                # --- MAIN METRIC (dominant) ---
+                # main metric
                 st.metric(
-                    label=f"{StatusEmoji} Skill Match",
+                    label=f"{StatusEmoji} skill match",
                     value=f"{SkillPercent}%",
                     delta=f"{StatusText}"
                 )
 
-                # --- CONTEXT MESSAGE ---
+                # context message
                 if SkillRatio >= 0.7:
-                    st.success("Your resume aligns well with the required skills.")
+                    st.success("your resume aligns well with the required skills.")
                 elif SkillRatio >= 0.4:
-                    st.warning("You meet some requirements but could improve key areas.")
+                    st.warning("you meet some requirements but could improve key areas.")
                 else:
-                    st.error("Significant skill gaps detected for this role.")
+                    st.error("significant skill gaps detected for this role.")
 
-                # --- SECONDARY METRICS ---
+                # secondary metrics
                 MetricCol1, MetricCol2 = st.columns(2)
 
                 with MetricCol1:
-                    st.metric("✅ Matched Skills", SkillResults["MatchedCount"])
-                    st.metric("❌ Missing Skills", SkillResults["MissingCount"])
+                    st.metric("✅ matched skills", SkillResults["MatchedCount"])
+                    st.metric("❌ missing skills", SkillResults["MissingCount"])
 
                 with MetricCol2:
-                    st.metric("➕ Extra Skills", SkillResults["ExtraCount"])
+                    st.metric("➕ extra skills", SkillResults["ExtraCount"])
 
                 st.markdown("---")
-                st.markdown("**Skills Required:**")
+                st.markdown("**skills required:**")
                 st.markdown(f"```\n{Row['job_skill_set']}\n```")
 
-                st.markdown("**Job Description (first 1500 chars):**")
+                st.markdown("**job description (first 1500 chars):**")
                 JdPreview = str(Row["job_description"])[:1500]
                 st.text(JdPreview)
                 if len(str(Row["job_description"])) > 1500:
